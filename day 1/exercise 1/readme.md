@@ -1,4 +1,4 @@
-# P1 – Build your first basic automation
+# Build your first basic automation
 
 ## Workflow Overview
 **Purpose:** Collect IT support requests, generate a unique ticket ID, and create a corresponding text file in GitHub.
