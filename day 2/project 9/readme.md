@@ -171,21 +171,16 @@ This is the **actual ticket creation logic**.
 
 ### When Executed by Another Workflow
 
-**Type:** Execute Workflow Trigger
-
-Inputs:
-
-* User Name
-* Issue Description
-* Status
-* Prio
+| Parameter | Type   |
+| ----- | ---------- |
+| User Name | String` |
+| Issue Description | String` |
+| Status | String` |
+| Prio | String` |
 
 ---
 
 ### Edit Fields
-
-**Type:** Set
-
 Creates ticket ID.
 
 | Field | Expression                                  |
@@ -195,17 +190,38 @@ Creates ticket ID.
 ---
 
 ### Create a file
-
 **Type:** GitHub
+Creates the ticket file on Github
 
 | Parameter      | Value                                                    |
 | -------------- | -------------------------------------------------------- |
-| Resource       | file                                                     |
+| Resource       | File                                                     |
+| Operation      | Create                                                   |
 | Owner          | `tobiaszwingmann-demo`                                   |
 | Repository     | `n8n-ai-bootcamp`                                        |
-| File Path      | `day 2/project 9/tickets/{{ $json.ID }}.txt`             |
-| File Content   | Includes User Name, Submitted, Description, Status, Prio |
-| Commit Message | `new ticket`                                             |
+
+#### File Path
+```
+day 2/project 9/tickets/{{ $json.ID }}.txt`
+```
+
+#### File Content
+```
+User Name: {{ $('When Executed by Another Workflow').item.json['User Name'] }}
+
+Submitted: {{ $now }}
+
+Description:
+{{ $('When Executed by Another Workflow').item.json['Issue Description'] }}
+
+Status: {{ $('When Executed by Another Workflow').item.json.Status }}
+Prio: {{ $('When Executed by Another Workflow').item.json.Prio }}
+```
+
+#### Commit Message 
+```
+new ticket
+```
 
 ---
 
@@ -240,11 +256,76 @@ This workflow is the **end-user interface**.
 
 **Type:** Agent
 
-Uses system prompt defining:
+#### System Message
+```
+### **Role**
 
-* IT support behavior
-* When to escalate
-* How to manage tickets
+You are an **IT Support Chatbot** for a corporate helpdesk.
+You assist employees with **NovaCRM**, **Windows** and **Microsoft Office** issues, and manage **support tickets**.
+
+You can:
+
+* Troubleshoot common technical issues.
+* Answer questions about the internal NovaCRM tool-
+* Decide when to **escalate** to a human IT technician.
+* **Create**, **update**, and **retrieve** tickets using your tools.
+
+---
+
+### **Conversation Flow**
+
+1. **Start** by asking whether the user already has a ticket ID.
+   * If yes → retrieve the ticket.
+   * If no → ask for the user’s **name** and **problem description**.
+
+2. **Classify the issue:**
+
+   * **Automated** → Routine or self-service problem (Windows, Office, login, Teams, etc.).
+   * **Route to IT** → Contains keywords like *hardware, repair, network down, outage, admin rights, security, virus, data loss, urgent*, or when unsure.
+
+3. **Respond:**
+
+   * If **Automated**, give clear, numbered troubleshooting steps.
+   * If **Route to IT**, say:
+
+     > “This looks like it needs a human IT technician. I’ll escalate it for you.”
+     > Then **create a ticket** and share the ID.
+
+4. **Ticket Management:**
+
+   * **Create** → when logging or escalating new issues.
+   * **Update** → when adding progress or notes.
+   * **Retrieve** → when a ticket ID is provided.
+
+---
+
+### **Details**
+* Whether a ticket is urgent or not is classified by *YOU*, not the user
+
+### **Response Style**
+
+* Short, direct, step-by-step answers.
+* Quote commands exactly (e.g., `excel /safe`).
+* Confirm after each step.
+* If unable to help, escalate politely.
+
+---
+
+### **Example**
+
+**User:** “I can’t open Excel files.”
+**Chatbot:**
+
+> Do you already have a ticket ID?
+>
+> Thanks, [Name]. Try this:
+>
+> 1. Close all Excel windows.
+> 2. Press **Windows + R**, type `excel /safe`, and press **Enter`.
+> 3. Try reopening the file.
+>
+> Did that work? If not, I can create a ticket for escalation.
+```
 
 ---
 
@@ -272,9 +353,9 @@ Uses system prompt defining:
 
 **Type:** MCP Client Tool
 
-| Parameter    | Value                                                            |
-| ------------ | ---------------------------------------------------------------- |
-| Endpoint URL | `http://localhost:5678/mcp/edd5ffc1-e861-4354-85e7-e95ce9195c93` |
+| Parameter    | Value                     |                                   
+| ------------ | ------------------------- |
+| Endpoint URL | `your-mcp-production-url` |
 
 Connects to the **MCP Server workflow**.
 
@@ -285,6 +366,16 @@ Connects to the **MCP Server workflow**.
 **Type:** Tool Workflow
 
 Calls document search workflow.
+
+| Parameter    | Value                     |                                   
+| ------------ | ------------------------- |
+| Description | `Call this tool to search the user manual of the Nova CRM software.` |
+| Source | `Database` |
+| Workflow | From list: `P8 - Document Search` |
+
+#### Workflow Inputs
+**query**
+*Defined automatically by the model*
 
 ---
 
