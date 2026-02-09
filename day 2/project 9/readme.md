@@ -1,408 +1,229 @@
-# P8 – Advanced Agent
+# P9 – AI Agent with MCP
 
-## Part 1: Document Ingestion
+This project contains **three workflows** that together demonstrate how to expose n8n functionality as **MCP tools** and use them from an AI agent.
 
-**Purpose:**
-Convert all CRM documentation into vector embeddings for searchable access by the agent.
+* MCP Server → exposes ticket operations as tools
+* Create Ticket Tool → creates GitHub tickets
+* MCP Client → AI chatbot that uses those tools
 
-**Trigger:** Manual (`When clicking 'Test workflow'`)
-
-**Nodes:**
-
-1. When clicking ‘Test workflow’
-2. List files
-3. Get a file
-4. Pinecone Vector Store
-   4.1 Embeddings Gemini
-   4.2 Default Data Loader
-      4.2.1 Recursive Character Text Splitter
-8. Pinecone Vector Store
+Sources:   
 
 ---
 
-#### Node 1: When clicking ‘Test workflow’
+# 1. P9 – MCP Server
 
-**Trigger:** Manual execution of the ingestion process.
+## Purpose
 
----
+Expose ticket management functionality (Create, Read, Update) as **MCP tools** that AI agents can call.
 
-#### Node 2: List files
-
-| Parameter     | Value                        |
-| ------------- | ---------------------------- |
-| **Resource**  | file                   	   |
-| **Operation** | list                   	   |
-| **File Path** | `day 2/project 8/documents/` |
+This workflow acts as the **tool provider**.
 
 ---
 
-#### Node 3: Get a file
+## Nodes
 
-| Parameter     | Value               |
-| ------------- | ------------------- |
-| **Resource**  | file                |
-| **Operation** | get                 |
-| **File Path** | `={{ $json.path }}` |
+### Ticket MCP Server
 
----
+**Type:** MCP Trigger
 
-#### Node 4: Pinecone Vector Store
-
-| Parameter           | Value   |
-| ------------------- | ------- |
-| **Operation Mode**  | insert  |
-| **Index**           | support |
-| **Namespace**       | it      |
-| **Clear Namespace** | false   |
+| Parameter | Value                                  |
+| --------- | -------------------------------------- |
+| Path      | `edd5ffc1-e861-4354-85e7-e95ce9195c93` |
 
 ---
 
-#### Node 4.1: Embeddings Gemini
+### Get ticket
 
-| Parameter      | Value                    |
-| -------------- | ------------------------ |
-| **Model**      | `text-embedding-3-large` |
-| **Dimensions** | 1024                     |
+**Type:** GitHub Tool
+
+| Parameter        | Value                                          |
+| ---------------- | ---------------------------------------------- |
+| Tool Description | Load a ticket from GitHub                      |
+| Resource         | file                                           |
+| Operation        | get                                            |
+| Owner            | `tobiaszwingmann-demo`                         |
+| Repository       | `n8n-ai-bootcamp`                              |
+| File Path        | AI-provided path in `day 2/project 9/tickets/` |
 
 ---
 
-#### Node 4.2: Default Data Loader
+### Update ticket
+
+**Type:** GitHub Tool
+
+| Parameter        | Value                      |
+| ---------------- | -------------------------- |
+| Tool Description | Update a ticket on GitHub  |
+| Resource         | file                       |
+| Operation        | edit                       |
+| Owner            | `tobiaszwingmann-demo`     |
+| Repository       | `n8n-ai-bootcamp`          |
+| File Path        | AI-provided path           |
+| File Content     | AI-generated ticket format |
+| Commit Message   | AI-generated               |
+
+---
+
+### Create Ticket
+
+**Type:** Tool Workflow
+
+Calls: **P9 – Create Ticket Tool**
+
+Inputs:
+
+| Field             | Description         |
+| ----------------- | ------------------- |
+| User Name         | Name of user        |
+| Issue Description | Ticket description  |
+| Status            | Open / Closed       |
+| Prio              | Urgent / Not Urgent |
+
+---
+
+# 2. P9 – Create Ticket Tool
+
+## Purpose
+
+Reusable workflow that **creates a new ticket file in GitHub** when called by another workflow or MCP.
+
+This is the **actual ticket creation logic**.
+
+---
+
+## Nodes
+
+### When Executed by Another Workflow
+
+**Type:** Execute Workflow Trigger
+
+Inputs:
+
+* User Name
+* Issue Description
+* Status
+* Prio
+
+---
+
+### Edit Fields
+
+**Type:** Set
+
+Creates ticket ID.
+
+| Field | Expression                                  |
+| ----- | ------------------------------------------- |
+| ID    | `={{ $now.ts.toString(36).toUpperCase() }}` |
+
+---
+
+### Create a file
+
+**Type:** GitHub
+
+| Parameter      | Value                                                    |
+| -------------- | -------------------------------------------------------- |
+| Resource       | file                                                     |
+| Owner          | `tobiaszwingmann-demo`                                   |
+| Repository     | `n8n-ai-bootcamp`                                        |
+| File Path      | `day 2/project 9/tickets/{{ $json.ID }}.txt`             |
+| File Content   | Includes User Name, Submitted, Description, Status, Prio |
+| Commit Message | `new ticket`                                             |
+
+---
+
+# 3. P9 – MCP Client
+
+## Purpose
+
+AI-powered IT support chatbot that:
+
+* Troubleshoots issues
+* Searches documentation
+* Creates / retrieves / updates tickets via MCP tools
+
+This workflow is the **end-user interface**.
+
+---
+
+## Nodes
+
+### When chat message received
+
+**Type:** Chat Trigger
 
 | Parameter       | Value                           |
 | --------------- | ------------------------------- |
-| **Data Type**   | binary                          |
-| **Split Pages** | true                            |
-| **Metadata**    | file_name = `={{ $json.name }}` |
+| Public          | true                            |
+| Initial Message | Welcome to automated IT support |
 
 ---
 
-#### Node 4.2.1: Recursive Character Text Splitter
+### AI Agent
 
-| Parameter         | Value               |
-| ----------------- | ------------------- |
-| **Splitter Type** | Recursive Character |
-| **Options**       | default             |
+**Type:** Agent
 
----
+Uses system prompt defining:
 
-## Part 2: Document Search
-
-**Purpose**: Perform a semantic document search against the vector database and prepare structured results for the chatbot agent.
-
-**Trigger:** Executed by another workflow (`Execute Workflow Trigger`)
-
-**Nodes:**
-
-1. When Executed by Another Workflow
-
-2. Pinecone Vector Store
-
-     2.1 Embeddings (Gemini)
-
-3. Relevant Data for Chatbot Response
-
-4. Aggregate
-
-5. Create Response
+* IT support behavior
+* When to escalate
+* How to manage tickets
 
 ---
 
-#### Node 1: When Executed by Another Workflow
+### Google Gemini Chat Model
 
-| Parameter           | Value   |
-| ------------------- | ------- |
-| **Workflow Inputs** | `query` |
+**Type:** Gemini Chat Model
 
-**Sample Input:**
-
-| Field     | Value                                             |
-| --------- | ------------------------------------------------- |
-| **query** | Email templates aren’t displaying dynamic fields. |
+| Parameter | Value                           |
+| --------- | ------------------------------- |
+| Model     | `models/gemini-3-flash-preview` |
 
 ---
 
-#### Node 2: Pinecone Vector Store
+### Memory
 
-| Parameter          | Value                |
-| ------------------ | -------------------- |
-| **Operation Mode** | load                 |
-| **Index**          | support              |
-| **Namespace**      | it                   |
-| **Prompt**         | `={{ $json.query }}` |
+**Type:** Memory Buffer Window
 
-##### Subnode 2.1: Embeddings (Gemini)
-
-| Parameter      | Value                    |
-| -------------- | ------------------------ |
-| **Model**      | `gemini-embedding-001` |
-| **Dimensions** | 3,072                     |
+| Parameter             | Value |
+| --------------------- | ----- |
+| Context Window Length | 15    |
 
 ---
 
-#### Node 3: Relevant Data for Chatbot Response
+### MCP Client
 
-| Parameter       | Value                                              |
-| --------------- | -------------------------------------------------- |
-| **Assignments** | Extract fields from retrieved documents            |
-| **Content**     | `={{ $json.document.pageContent }}`                |
-| **Source File** | `={{ $json.document.metadata.file_name }}`         |
-| **Page**        | `={{ $json.document.metadata['loc.pageNumber'] }}` |
+**Type:** MCP Client Tool
 
----
+| Parameter    | Value                                                            |
+| ------------ | ---------------------------------------------------------------- |
+| Endpoint URL | `http://localhost:5678/mcp/edd5ffc1-e861-4354-85e7-e95ce9195c93` |
 
-#### Node 4: Aggregate
-
-| Parameter          | Value                   |
-| ------------------ | ----------------------- |
-| **Aggregate Mode** | Aggregate All Item Data |
+Connects to the **MCP Server workflow**.
 
 ---
 
-#### Node 5: Create Response
+### Search CRM
 
-| Parameter      | Value                         |
-| -------------- | ----------------------------- |
-| **Field Name** | `response`                    |
-| **Value**      | `={{ $json.toJsonString() }}` |
+**Type:** Tool Workflow
 
----
-
-## Part 3: Create Ticket Tool (Updated File Path)
-
-**Trigger:** Executed by another workflow (`Execute Workflow Trigger`)
-
-**Nodes:**
-1. When Executed by Another Workflow
-2. Edit Fields
-3. Create a file
+Calls document search workflow.
 
 ---
 
-#### Node 1: When Executed by Another Workflow
-
-| Parameter           | Value                                                    |
-| ------------------- | -------------------------------------------------------- |
-| **Workflow Inputs** | - User Name<br>- Issue Description<br>- Status<br>- Prio |
-
-**Sample Input:**
-
-| Field                 | Value                                 |
-| --------------------- | ------------------------------------- |
-| **User Name**         | Tobias                                |
-| **Issue Description** | My laptop fell down and is broken now |
-| **Status**            | Open                                  |
-| **Prio**              | Urgent                                |
-
----
-
-#### Node 2: Edit Fields
-
-| Parameter      | Value                                       |
-| -------------- | ------------------------------------------- |
-| **Field Name** | ID                                          |
-| **Expression** | `={{ $now.ts.toString(36).toUpperCase() }}` |
-| **Type**       | string                                      |
-
----
-
-#### Node 3: Create a file
-
-| Parameter          | Value                                          |
-| ------------------ | ---------------------------------------------- |
-| **Resource**       | File                                           |
-| **Operation**      | Create                                         |
-| **Repository**     | n8n-ai-bootcamp								  |
-| **File Path**      | `day 2/project 8/tickets/{{ $json.ID }}.txt`   |
-
-**File Content**:
-
-```markdown
-User Name: {{ $('When Executed by Another Workflow').item.json['User Name'] }}
-
-Submitted: {{ $now }}
-
-Description:
-{{ $('When Executed by Another Workflow').item.json['Issue Description'] }}
-
-Status: {{ $('When Executed by Another Workflow').item.json.Status }}
-Prio: {{ $('When Executed by Another Workflow').item.json.Prio }}
-```
-
-**Commit Message**: `new ticket`
-
----
-
-## Part 4: Update the Agent
-
-**Start by copying the workflow from “P4 – Simple Agent.”**
-
-We’ll extend it with new tools that allow the agent to search CRM manuals and knowledge documents, alongside its existing ticket management capabilities.
-
-**Trigger:** Chat message (`Chat Trigger`)
-
-**Nodes:**
-
-1. When chat message received
-2. AI Agent
-
-   2.1 Gemini Chat Model
-
-   2.2 Simple Memory
-
-   2.3 Get ticket
-
-   2.4 Update ticket
-
-   2.5 Create Ticket Tool
-
-   **2.6 Document Search**
-
----
-
-### Node 1: When chat message received
-(No changes)
-
----
-
-### Node 2: AI Agent
-(No changes)
-
----
-
-#### Subnode 2.1: Gemini Chat Model
-(No changes)
-
----
-
-#### Subnode 2.2: Simple Memory
-(No changes)
-
----
-
-#### Subnode 2.3: Get ticket
-
-| Parameter            | Value                                    |
-| -------------------- | ---------------------------------------- |
-| **Operation**        | get                                      |
-| **Resource**         | file                                     |
-| **Authentication**   | oAuth2                                   |
-| **File Path**        | Defined automatically by the model       |
-| **Tool Description** | Load a ticket from GitHub for reference. |
-
-**File Path Description**
-
-```markdown
-Tickets are stored in the directory `day 2/project 8/tickets/`.
-Example path: "day 2/project 8/tickets/MHGPYF9K.txt"
-```
-
----
-
-#### Subnode 2.4: Update ticket
-
-| Parameter            | Value                              |
-| -------------------- | ---------------------------------- |
-| **Operation**        | edit                               |
-| **Resource**         | file                               |
-| **Authentication**   | oAuth2                             |
-| **File Path**        | Defined automatically by the model |
-| **File Content**     | Defined automatically by the model |
-| **Commit Message**   | Defined automatically by the model |
-| **Tool Description** | Update a ticket on GitHub.         |
-
-**File Path Description**
-
-```markdown
-Tickets are stored in the directory `day 2/project 8/tickets/`.
-Example path: "day 2/project 8/tickets/MHGPYF9K.txt"
-```
-
-**File Content Description**
-
-```markdown
-Required fields: "User Name", "Submitted", "Description", "Status", "Prio". 
-Optional fields: "Activity Log"
-
-## Example Ticket:
-User Name: Tobias
-
-Submitted: 2025-11-01T23:15:54.110+01:00
-
-Description:
-User Tobias cannot sign into Windows on company laptop. Device is domain-joined. User reports no access to desktop and requests immediate assistance. Unable to authenticate at login screen; needs urgent account or device support.
-
-Status: Closed
-Prio: Urgent
-
-## Optional – Activity Log:
-When making updates, append an activity log like so:
-
-Activity Log:
-2025-11-01T23:15:54.110+01:00 - Ticket created (Urgent). Escalated to human IT technician for account/machine support.
-2025-11-01T23:40:00.000+01:00 - User reported: "I can log in now! it works". User regained access to Windows. No further action required at this time. Ticket closed.
-```
-
----
-
-#### Subnode 2.5: Create Ticket Tool
-
-| Parameter            | Value                          |
-| -------------------- | ------------------------------ |
-| **Workflow**         | P8 – Create Ticket Tool        |
-
-**Tool Description** 
-```markdown
-Call this tool to create a new ticket. Status can be "Open" or "Closed". Prio can be "Urgent" or "Not Urgent".
-```
-
-**Source**: Database
-
-**Workflow** P8 Create Ticket Tool
-
-**User Name: Defined by the model**
-```
-Name of the user. Required to follow up later on.
-```
-
-**Issue: Defined by the model**
-```
-Description of the problem. Required.
-```
-
-**Status**: **Defined by the model**
-```
-Current status of the ticket. Required. Allowed values: "Open", "Closed"
-```
-
-**Prio: Defined by the model**
-```
-Time criticality of the ticket. Required. Allowed values: "Urgent", "Not Urgent"
-```
-
----
-
-#### Subnode 2.6: Document Search
-
-| Parameter            | Value                                                              |
-| -------------------- | ------------------------------------------------------------------ |
-| **Workflow**         | P8 – Document Search                                               |
-| **Tool Description** | Call this tool to search the user manual of the Nova CRM software. |
-
-**Input Field**
-**Query: Defined automatically by the model**
-```
-
----
-
-### Sample Queries
-
-Use the following to test the agent’s capabilities:
-
-* “How do I reset a CRM user’s password?”
-* “Email templates aren’t displaying dynamic fields.”
-* “Create a ticket for this CRM sync error.”
-* “I already have a ticket: MHGPYF9K.”
-* “Update my CRM issue ticket.”
-
-
+# How Everything Works Together
+
+1. User chats with MCP Client
+2. AI Agent decides to:
+
+   * Troubleshoot
+   * Search documentation
+   * Manage tickets
+3. Ticket actions call MCP Server
+4. MCP Server calls:
+
+   * GitHub tools
+   * Create Ticket Tool workflow
+5. Ticket stored or updated in GitHub
 

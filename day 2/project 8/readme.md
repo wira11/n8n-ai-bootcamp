@@ -1,5 +1,14 @@
 # P8 – Advanced Agent
 
+This project combines:
+
+- AI support chatbot
+- Knowledge base search (RAG)
+- Ticket management
+- GitHub storage
+
+It consists of four workflows that work together.
+
 ## Part 1: Document Ingestion
 
 **Purpose:**
