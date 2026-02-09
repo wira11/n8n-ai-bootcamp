@@ -1,4 +1,4 @@
-# P6 – Simple Agent
+# P7 – Simple Agent
 
 ## Workflow (Part 1)
 
