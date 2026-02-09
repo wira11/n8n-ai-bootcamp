@@ -65,7 +65,7 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
       "typeVersion": 1,
       "position": [
-        -32,
+        -64,
         224
       ],
       "id": "86789ed8-9c00-4179-bf94-c311b180f653",
@@ -232,9 +232,24 @@
         },
         "workflowInputs": {
           "mappingMode": "defineBelow",
-          "value": {},
-          "matchingColumns": [],
-          "schema": [],
+          "value": {
+            "query": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('query', ``, 'string') }}"
+          },
+          "matchingColumns": [
+            "query"
+          ],
+          "schema": [
+            {
+              "id": "query",
+              "displayName": "query",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
           "attemptToConvertTypes": false,
           "convertFieldsToString": false
         }
@@ -350,7 +365,7 @@
     "binaryMode": "separate",
     "availableInMCP": false
   },
-  "versionId": "f68d87a4-dff0-44ef-957d-e9eaeacc2b5e",
+  "versionId": "3405f81f-4d3f-4eb7-81f8-ee90bada77b0",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "26bf8eec37d4d0a7ee8a9b62eaf593a40b0ce784017882c7b978518d626df3a8"
