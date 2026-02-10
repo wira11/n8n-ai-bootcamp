@@ -1,3 +1,225 @@
+# P8 – Advanced Agent with RAG
+In this project, we'll enhance our AI Agent with access to internal data sources.
+
+## Part 1: Document ingestion
+
+**Purpose:** Load internal data sources into a vector data store so the AI Agent can perform a semantic search and retrieve relevant pieces of information during the conversation.
+
+### 1. Create New Workflow
+- n8n home --> New workflow
+- Name the workflow `P8 - Document Ingestion`
+
+### 2. Add `Manual Trigger` node
+
+### 3. Add `Github List File` Node
+
+**Resource**: `file`
+
+**Operation**: `list`
+
+**Owner**: `your-github-username`
+
+**Repository**: `n8n-ai-bootcamp` (forked)
+
+**Path** 
+```
+day 2/project 8/documents/
+```
+
+### 3. Add `Github Get File` Node
+
+**Resource**: `file`
+
+**Operation**: `Get`
+
+**Owner**: `your-github-username`
+
+**Repository**: `n8n-ai-bootcamp` (forked)
+
+**File Path** 
+```
+{{ $json.path }}
+```
+
+**As Binary Property**: `True`
+
+**Put Output File in Field**: `data`
+
+### 4. Add `Pinecone Vector Stors` Node
+
+#### 4.1 Add Pinecone credential
+- Go to the [Pinecone website](https://www.pinecone.io/)
+- Click **Start building** / **Sign up for free**
+- Enter your Email --> Confirm code
+- Copy the **API Key**
+- Paste the API Key into **n8n Pinecone Credentials**
+
+#### 4.2 Create Pinecone index
+- In Pinecone, click **Create index**
+- Index name: `documents`
+- Choose **Manual Configuration**
+- For **Gemini Embeddings**, choose:
+  - Vector type: `Dense`
+  - Dimension size: `3072`
+  - Metric: `cosine`
+- Click **Create Index**
+
+### 5. Configure `Pinecone Vector Stors` Node
+- **Operation Mode**: `Insert Documents
+- **Pinecone Index**: `documents`
+- **Embedding Batch Size**: `200`
+Options
+- **Pinecone Namespace**: `it`
+- **Clear Namespace**: `true`
+
+#### 5.1 Subnodes
+Model
+- **Embeddings**: Add `Embeddings Google Gemini` node
+- **Model**: `gemini-embedding-001`
+
+Data Loader
+- Add **Default Data Loader** Node
+- **Type of Data**: `Binary`
+- **Mode**: `Load All Input Data`
+- **Data Format**: `Automatically Detect by Mime Type`
+- **Text Splitting**: `Simple`
+Options:
+- **Split Pages in PDF**: `True`
+- **Metadata**
+   - Name: `file_name`
+   - Value: `{{ $json.name }}`
+
+### 5. Try it out!
+- Run the workflow
+- Check the embedded documents in Pinecone
+---
+
+## Part 2: Building a Custom Tool (`Create Ticket` Tool)
+
+You will build a custom n8n workflow which can be added to the AI agent as a tool. In this example, the workflow will generate a new ticket ID and create a new ticket.
+
+### 1. Create New Workflow
+- n8n home --> New workflow
+
+### 2. Add Trigger Node `When Executed by Another Workflow`
+#### Input data mode: `Define using fields below`
+
+| Parameter | Type   |
+| ----- | ---------- |
+| User Name | String` |
+| Issue Description | String` |
+| Status | String` |
+| Prio | String` |
+
+**Pin Test Data**:
+- User Name: `Tobias`
+- Issue Description: `My laptop fell down and is broken now`
+- Status: `Open`
+- Prio: `Urgent`
+
+### 3. Add `Edit Fields` Node
+**Manual Mapping**
+ Name | Type | Value |
+| --- | ---- | ----- |
+| ID | String | `{{ $now.ts.toString(36).toUpperCase() }}` |
+
+
+### 4. Add `Github Create File` Node
+
+**Resource**: `File`
+
+**Operation**: `Create`
+
+**Repository Owner**: `your-github-username`
+
+**Repository Name**: `n8n-ai-bootcamp` (forked)
+
+**File Path**
+```
+day 2/project 7/tickets/{{ $json.ID }}.txt
+```
+
+**File Content**
+```
+User Name: {{ $('When Executed by Another Workflow').item.json['User Name'] }}
+
+Submitted: {{ $now }}
+
+Description:
+{{ $('When Executed by Another Workflow').item.json['Issue Description'] }}
+
+Status: {{ $('When Executed by Another Workflow').item.json.Status }}
+Prio: {{ $('When Executed by Another Workflow').item.json.Prio }}
+```
+
+**Commit Message**
+```
+new ticket
+```
+
+### 5. Try it out!
+- Run a test execution
+
+### 6. Publish
+- Everything work?
+- Click **Publish** to publish your workflow
+
+---
+
+## Part 3: Add the Custom Tool to your AI Agent
+
+Let's give your AI Agent access to the custom tool
+
+### 1. Open AI Agent Workflow from Part 1
+- n8n home --> Open `Simple AI Agent` Workflow
+
+### 2. Add Custom Tool
+- Click the `+` icon under AI Agent Tool
+- Select `Call n8n Workflow Tool`
+  
+#### Custom Tool Settings
+**Description**
+```
+Call this tool to create a new ticket. Status can be "Open" or "Closed". Prio can be "Urgent" or "Not Urgent".
+```
+
+**Source**: `Database`
+
+**Workflow**: `From List` --> `Select the ticket workflow you just created`
+
+#### Workflow Inputs
+- **User Name**: *Defined automatically by the model*
+- **Description**
+```
+Name of the user. Required to follow up later on.
+```
+
+- **Issue Description**: *Defined automatically by the model*
+- **Description**
+```
+Description of the problem. Required.
+```
+
+- **Status**: *Defined automatically by the model*
+- **Description**
+```
+Current status of the ticket. Required. Allowed values: "Open", "Closed"
+```
+
+- **Prio**: *Defined automatically by the model*
+- **Description**
+```
+Time criticality of the ticket. Required. Allowed values: "Urgent", "Not Urgent"
+```
+
+### 3. Try it out!
+- Create a new ticket through your agent
+- Check the ticket in Github
+
+
+
+
+
 # P8 – Advanced Agent
 
 This project combines:
