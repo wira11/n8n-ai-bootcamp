@@ -116,6 +116,8 @@ Tickets are stored in the directory `day 2/project 7/tickets/`.
 Example path: "day 2/project 7/tickets/MHGPYF9K.txt"
 ```
 
+**Binary**: `False`
+
 #### 5.2 Add `Github Edit File` Tool
 **Tool Description**
 ```
